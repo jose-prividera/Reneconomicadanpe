@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Obras — Ingresos Menin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --color-principal: #6366f1;
+            --color-principal-oscuro: #4f46e5;
+            --color-fondo: #f3f4f6;
+        }
+        .color-principal { background-color: var(--color-principal) !important; }
+        .color-principal-hover:hover { background-color: var(--color-principal-oscuro) !important; }
+        .border-principal { border-color: var(--color-principal) !important; }
+        .text-principal { color: var(--color-principal) !important; }
+        #panelPersonalizacion {
+            position: fixed; right: -320px; top: 0; width: 320px; height: 100vh;
+            background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            transition: right 0.3s ease; z-index: 1000; overflow-y: auto;
+        }
+        #panelPersonalizacion.abierto { right: 0; }
+        #btnAbrirPanel {
+            position: fixed; right: 10px; top: 100px; background: white;
+            padding: 10px 15px; border-radius: 8px 0 0 8px;
+            box-shadow: -2px 2px 10px rgba(0,0,0,0.1); cursor: pointer;
+            z-index: 999; transition: right 0.3s ease;
+        }
+        #btnAbrirPanel.panel-abierto { right: 320px; }
+        .tab-active { background-color: var(--color-principal) !important; color: white !important; }
+    </style>
+</head>
+<body class="min-h-screen" style="background-color: var(--color-fondo)">
+
+    <div id="btnAbrirPanel" onclick="togglePanel()"><span class="text-2xl">🎨</span></div>
+
+    <!-- Panel personalización -->
+    <div id="panelPersonalizacion">
+        <div class="p-4 border-b bg-gray-50">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-lg">🎨 Personalización</h3>
+                <button onclick="togglePanel()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+            </div>
+        </div>
+        <div class="p-4 space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-2">Color Principal</label>
+                <div class="flex gap-2">
+                    <input type="color" id="colorPrincipal" value="#6366f1" onchange="cambiarColorPrincipal()" class="w-16 h-10 rounded cursor-pointer">
+                    <button onclick="resetearColor()" class="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">Resetear</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Nombre de Empresa</label>
+                <input type="text" id="nombreEmpresa" value="Ingresos Menin" onchange="cambiarNombreEmpresa()" class="w-full px-3 py-2 border rounded text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Esquema de Colores</label>
+                <select id="esquemaColores" onchange="cambiarEsquema()" class="w-full px-3 py-2 border rounded text-sm">
+                    <option value="indigo" selected>Indigo (Defecto)</option>
+                    <option value="naranja">Naranja</option>
+                    <option value="azul">Azul</option>
+                    <option value="verde">Verde</option>
+                    <option value="morado">Morado</option>
+                </select>
+            </div>
+            <div>
+                <label class="flex items-center justify-between">
+                    <span class="text-sm font-medium">Modo Oscuro</span>
+                    <input type="checkbox" id="modoOscuro" onchange="toggleModoOscuro()" class="w-5 h-5 rounded">
+                </label>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Bordes Redondeados</label>
+                <input type="range" id="bordeRedondeado" min="0" max="20" value="8" onchange="cambiarBordes()" class="w-full">
+            </div>
+            <div class="pt-4 border-t space-y-2">
+                <button onclick="exportarImagen()" class="w-full color-principal text-white px-4 py-2 rounded hover:opacity-90">📥 Descargar Imagen</button>
+                <button onclick="cambiarApiKey()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm">🔑 Cambiar API Key</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app">
+        <!-- HEADER -->
+        <header class="bg-white shadow-sm border-b sticky top-0 z-10">
+            <div class="max-w-6xl mx-auto px-4 py-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <img src="WhatsApp Image 2026-05-27 at 15.10.06.jpeg" alt="Logo DANPE" class="h-12 w-auto rounded">
+                        <div>
+                            <h1 id="tituloEmpresa" class="font-bold text-xl text-gray-900">Rentabilidad economica DANPE</h1>
+                            <p class="text-sm text-gray-500">Dashboard de obras | <span id="indicadorGuardado" class="text-xs"></span></p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input id="inputApiKey" type="password" placeholder="🔑 API Key de Google Sheets" 
+                            class="border border-gray-300 rounded px-3 py-1.5 text-sm w-64 focus:outline-none focus:border-indigo-400"
+                            onkeydown="if(event.key==='Enter') cargarDesdeGoogleSheets()">
+                        <button onclick="cargarDesdeGoogleSheets()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-sm">🔄 Cargar</button>
+                        <button onclick="exportarImagen()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">📥 Descargar</button>
+                        <button onclick="abrirSheetAdmin()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm" title="Solo administradores">🔒 Admin</button>
+                    </div>
+                </div>
+                <!-- Tabs de período -->
+                <div class="flex gap-1 mt-3 flex-wrap" id="periodTabs"></div>
+                <!-- Filtro de Centro de Costo -->
+                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                    <span class="text-sm text-gray-600 font-medium">Centro de Costo:</span>
+                    <select id="ccFilter" onchange="aplicarFiltroCC()" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+                        <option value="Todos">Todos</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto px-4 py-4">
+
+            <!-- Banner principal con color -->
+            <div class="color-principal rounded-xl p-5 mb-4 text-white card-style">
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <p class="text-indigo-100 text-sm">Total ingresos</p>
+                        <p id="totalIngresos" class="text-3xl font-bold">$0</p>
+                    </div>
+                    <div>
+                        <p class="text-indigo-100 text-sm">Total egresos</p>
+                        <p id="totalEgresos" class="text-3xl font-bold">$0</p>
+                    </div>
+                    <div>
+                        <p class="text-indigo-100 text-sm">Resultado económico</p>
+                        <p id="totalResultado" class="text-3xl font-bold">$0</p>
+                    </div>
+                    <div>
+                        <p class="text-indigo-100 text-sm">Rentabilidad promedio</p>
+                        <p id="totalRentabilidad" class="text-3xl font-bold">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cards por obra -->
+            <h3 class="font-bold text-gray-800 mb-3">Detalle por Centro de costo</h3>
+            <div id="obrasCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4"></div>
+
+            <!-- Gráficos -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="bg-white rounded-lg p-4 card-style">
+                    <h3 class="font-semibold mb-3 text-gray-800">Ingresos vs Egresos por centro de costo</h3>
+                    <canvas id="chartCertEgr" height="220"></canvas>
+                </div>
+                <div class="bg-white rounded-lg p-4 card-style">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-semibold text-gray-800">Comparacion Resultado economico por sector</h3>
+                        <select id="ccFilterChartResultado" onchange="actualizarChartResultado()" class="border border-gray-300 rounded px-2 py-1 text-xs">
+                            <option value="Todos">Todos</option>
+                            <option value="Combustible">Combustible</option>
+                            <option value="Art. Playa">Art. Playa</option>
+                            <option value="Tienda Full">Tienda Full</option>
+                        </select>
+                    </div>
+                    <canvas id="chartResultado" height="220"></canvas>
+                </div>
+            </div>
+
+            <!-- Tabla detallada -->
+            <div class="bg-white rounded-lg p-4 mb-4 card-style">
+                <h3 class="font-semibold mb-3 text-gray-800">Tabla detallada</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-gray-600">Centro de Costo</th>
+                                <th class="px-3 py-2 text-left text-gray-600">Obra</th>
+                                <th class="px-3 py-2 text-right text-gray-600">Ingresos</th>
+                                <th class="px-3 py-2 text-right text-gray-600">Egresos</th>
+                                <th class="px-3 py-2 text-right text-gray-600">Resultado</th>
+                                <th class="px-3 py-2 text-right text-gray-600">Rentabilidad</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaObras"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Resultado Economico general -->
+            <div class="bg-white rounded-lg p-4 mb-4 card-style">
+                <h3 class="font-semibold mb-1 text-gray-800">Resultado Economico general</h3>
+                <p class="text-sm text-gray-500 mb-3">Resultado económico por CC a lo largo de los períodos</p>
+                <canvas id="chartFinanciero" height="120"></canvas>
+            </div>
+
+            <!-- Resumen acumulado por período -->
+            <div class="bg-white rounded-lg p-4 card-style">
+                <h3 class="font-semibold mb-3 text-gray-800">Resumen por período</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm" id="tablaResumenPeriodos"></table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ===================== CONFIG =====================
+        // Modificá estos valores para apuntar a tu sheet
+        const CONFIG = {
+            SHEET_ID: '1MlYP4gD-Y93A5zgoSeZXVrJyysNo1KDLf-HsV2jY4nM',
+            SHEET_NAME: 'Economicodanpe',
+            RANGO: 'A1:Z200',
+            ADMIN_PASSWORD: '1234',
+            AUTO_REFRESH_MIN: 5  // minutos. 0 = desactivado
+        };
+
+        let apiKeyGuardada = '';
+        let dynamicPeriods = [];
+        let periodoActivo = 'Enero';
+        let ccFilter = 'Todos';
+        let ccFilterChartResultado = 'Todos';
+        let parsedData = null;
+        let refreshTimer = null;
+        let chartCertEgr, chartResultado, chartFinanciero;
+
+        // Registrar plugin datalabels
+        Chart.register(ChartDataLabels);
+
+        // Estilos globales de Chart.js
+        Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+        Chart.defaults.animation.duration = 800;
+        Chart.defaults.animation.easing = 'easeOutQuart';
+        Chart.defaults.plugins.datalabels.display = false;
+
+        // Gradiente helper: crea un gradiente vertical en un contexto canvas
+        function createGradient(ctx, chartArea, colorTop, colorBottom) {
+            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+            gradient.addColorStop(0, colorBottom);
+            gradient.addColorStop(1, colorTop);
+            return gradient;
+        }
+
+        function getApiKey() {
+            return document.getElementById('inputApiKey').value.trim();
+        }
+
+        function cambiarApiKey() {
+            document.getElementById('inputApiKey').value = '';
+            document.getElementById('inputApiKey').focus();
+        }
+
+        // ===================== UTILS =====================
+        function formatMoney(v) {
+            if (v === null || v === undefined || isNaN(v)) return '-';
+            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(v);
+        }
+        function formatPct(v) {
+            if (v === null || v === undefined || isNaN(v)) return '-';
+            return v.toFixed(1) + '%';
+        }
+        function parseNum(s) {
+            if (!s || s.toString().trim() === '-' || s.toString().trim() === '') return null;
+            let str = s.toString().trim().replace(/\s/g, '').replace(/\$/g, '').replace(/%/g, '');
+            const tieneComa  = str.includes(',');
+            const tienePunto = str.includes('.');
+            if (tieneComa && tienePunto) {
+                // Determinar cuál es el separador decimal (el que aparece último)
+                const posComa  = str.lastIndexOf(',');
+                const posPunto = str.lastIndexOf('.');
+                if (posPunto > posComa) {
+                    // Formato inglés: 419,869,647.25 → eliminar comas, punto es decimal
+                    str = str.replace(/,/g, '');
+                } else {
+                    // Formato argentino: 1.500.000,50 → eliminar puntos, coma es decimal
+                    str = str.replace(/\./g, '').replace(',', '.');
+                }
+            } else if (tieneComa && !tienePunto) {
+                // Solo coma: puede ser decimal (1500,50) o miles (1.500) — lo tratamos como decimal
+                str = str.replace(',', '.');
+            } else if (!tieneComa && tienePunto) {
+                // Solo punto: miles (150.000) o decimal (1500.25)
+                const partes = str.split('.');
+                if (partes.length > 2) {
+                    // Múltiples puntos → todos son miles: 1.500.000
+                    str = str.replace(/\./g, '');
+                } else if (partes.length === 2 && partes[1].length === 3 && partes[0].length >= 2) {
+                    // Un punto con exactamente 3 decimales y parte entera >= 2 dígitos → miles
+                    str = str.replace('.', '');
+                }
+                // Cualquier otro caso (419869647.25, 150.5) → ya es decimal JS válido
+            }
+            const n = parseFloat(str);
+            return isNaN(n) ? null : n;
+        }
+        function abrevMoney(v) {
+            if (v === null || isNaN(v)) return '-';
+            const abs = Math.abs(v);
+            const s = abs >= 1e9 ? (v/1e9).toFixed(1)+'B' : abs >= 1e6 ? (v/1e6).toFixed(1)+'M' : abs >= 1e3 ? (v/1e3).toFixed(0)+'K' : Math.round(v).toString();
+            return (v < 0 ? '-' : '') + '$' + (v < 0 ? s.replace('-','') : s);
+        }
+
+        // ===================== PARSEO =====================
+        // Convierte "1/1/2026", "01/01/2026", "2026-01-01", etc. → "Enero"
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        function normalizarPeriodo(str) {
+            // Intenta extraer el mes de formatos d/m/aaaa, m/d/aaaa, aaaa-mm-dd
+            const matchDMY = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+            if (matchDMY) {
+                // El sheet usa d/m/aaaa (1/1/2026 = enero, 1/2/2026 = febrero)
+                const mes = parseInt(matchDMY[2], 10);
+                if (mes >= 1 && mes <= 12) return MESES[mes - 1];
+            }
+            const matchYMD = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+            if (matchYMD) {
+                const mes = parseInt(matchYMD[2], 10);
+                if (mes >= 1 && mes <= 12) return MESES[mes - 1];
+            }
+            return str; // si no es fecha, devolver tal cual
+        }
+
+        function parseSheet(rows) {
+            const obras = [];
+            const financiero = [];
+            let periods = [];
+
+            // Header: detectar columnas — A:CC, B:Clasificacion? C:Obra, D+:períodos
+            let startPeriodCol = 2;
+            let nameCol = 1;
+            let clasifCol = -1;
+            for (let k = 0; k < rows.length; k++) {
+                const row = rows[k] || [];
+                const r0 = (row[0] || '').trim().toLowerCase();
+                const r1 = (row[1] || '').trim().toLowerCase();
+                const r2 = (row[2] || '').trim().toLowerCase();
+                const keywords = ['obras', 'periodos', 'período', 'periodo', 'cc', 'sectores'];
+                if (keywords.includes(r0) || keywords.includes(r1) || keywords.includes(r2)) {
+                    if (r1.includes('clasif') || r1 === 'clasificacion') {
+                        startPeriodCol = 3;
+                        nameCol = 2;
+                        clasifCol = 1;
+                    }
+                    for (let j = startPeriodCol; j < row.length; j++) {
+                        const col = (row[j] || '').trim();
+                        if (col) periods.push({ name: normalizarPeriodo(col), col: j });
+                    }
+                    break;
+                }
+            }
+
+            if (periods.length === 0) {
+                periods = [
+                    { name: 'Enero',   col: startPeriodCol },
+                    { name: 'Febrero', col: startPeriodCol + 1 },
+                    { name: 'Marzo',   col: startPeriodCol + 2 },
+                    { name: 'Abril',   col: startPeriodCol + 3 },
+                ];
+            }
+
+            let i = 0;
+            while (i < rows.length) {
+                const row = rows[i] || [];
+                const cc   = (row[0] || '').trim();
+                const name = (row[nameCol] || '').trim();
+                if (!name) { i++; continue; }
+
+                const nl = name.toLowerCase();
+
+                // Fila de resultado general → gráfico financiero (ahora usa chartFinanciero de línea)
+                if (nl.includes('resultado financiero') || nl.includes('resultado economico')) {
+                    periods.forEach(per => {
+                        const val = parseNum(row[per.col]);
+                        if (val !== null) financiero.push({ periodo: per.name, valor: val });
+                    });
+                    i++; continue;
+                }
+
+                // Saltar filas de encabezado
+                const skip = ['obras', 'periodos', 'período', 'periodo', 'cc', 'sectores', 'clasif', 'clasificacion'];
+                if (skip.some(s => nl.startsWith(s))) { i++; continue; }
+
+                // Detectar bloque de obra: fila siguiente col nameCol empieza con "ingresos"
+                const nextRow  = rows[i + 1] || [];
+                const nextName = (nextRow[nameCol] || '').trim().toLowerCase();
+                if (nextName.startsWith('ingresos')) {
+                    const ingRow  = rows[i + 1] || [];
+                    const egRow   = rows[i + 2] || [];
+                    const resRow  = rows[i + 4] || [];
+                    const rentRow = rows[i + 5] || [];
+                    const clasificacion = clasifCol >= 0 ? (row[clasifCol] || '').trim() : '';
+                    const obra = { name, cc, clasificacion, periodos: {} };
+                    periods.forEach(per => {
+                        obra.periodos[per.name] = {
+                            ingresos:     parseNum(ingRow[per.col]),
+                            egresos:      parseNum(egRow[per.col]),
+                            resultado:    parseNum(resRow[per.col]),
+                            rentabilidad: parseNum(rentRow[per.col])
+                        };
+                    });
+                    obras.push(obra);
+                    i += 6; continue;
+                }
+                i++;
+            }
+            return { obras, financiero, periods };
+        }
+
+        // ===================== CARGA GOOGLE SHEETS =====================
+        async function cargarDesdeGoogleSheets() {
+            const indicador = document.getElementById('indicadorGuardado');
+            indicador.innerHTML = '<span class="text-blue-500">Cargando datos...</span>';
+            try {
+                const apiKey = getApiKey();
+                if (!apiKey) {
+                    indicador.innerHTML = '<span class="text-red-500">⚠ API Key requerida. Recargá la página e ingresala.</span>';
+                    return;
+                }
+                const sheetPrefix = CONFIG.SHEET_NAME ? encodeURIComponent(CONFIG.SHEET_NAME) + '!' : '';
+                const rango = sheetPrefix + CONFIG.RANGO;
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${rango}?key=${apiKey}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error((errData.error && errData.error.message) || 'Error HTTP ' + response.status);
+                }
+                const data = await response.json();
+                const rows = data.values;
+                if (!rows || rows.length === 0) {
+                    indicador.innerHTML = '<span class="text-yellow-500">Sheet vacío o sin datos en el rango configurado.</span>';
+                    return;
+                }
+                parsedData = parseSheet(rows);
+                dynamicPeriods = parsedData.periods;
+                // Poblar filtros de CC
+                const ccs = [...new Set(parsedData.obras.map(o => o.cc || 'Sin CC'))].sort();
+                const ccSelect = document.getElementById('ccFilter');
+                if (ccSelect) {
+                    ccSelect.innerHTML = '<option value="Todos">Todos</option>' + ccs.map(cc => `<option value="${cc}">${cc}</option>`).join('');
+                    ccSelect.value = ccFilter;
+                }
+                const ccChartSelect = document.getElementById('ccFilterChartResultado');
+                if (ccChartSelect) {
+                    ccChartSelect.value = ccFilterChartResultado;
+                }
+                crearTabs(dynamicPeriods);
+                if (!dynamicPeriods.some(p => p.name === periodoActivo)) {
+                    periodoActivo = dynamicPeriods.length > 0 ? dynamicPeriods[dynamicPeriods.length - 1].name : 'ACUMULADO';
+                }
+                const now = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                indicador.innerHTML = `<span class="text-green-600">✓ ${parsedData.obras.length} obras cargadas — ${now}</span>`;
+                renderDashboard(parsedData, periodoActivo);
+                agendarRefresh();
+            } catch (error) {
+                console.error('Error:', error);
+                indicador.innerHTML = `<span class="text-red-500">Error al cargar: ${error.message}</span>`;
+            }
+        }
+
+        function agendarRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            if (CONFIG.AUTO_REFRESH_MIN > 0) {
+                refreshTimer = setInterval(cargarDesdeGoogleSheets, CONFIG.AUTO_REFRESH_MIN * 60 * 1000);
+            }
+        }
+
+        // ===================== FILTRO CC =====================
+        function aplicarFiltroCC() {
+            ccFilter = document.getElementById('ccFilter').value;
+            if (parsedData) renderDashboard(parsedData, periodoActivo);
+        }
+
+        function actualizarChartResultado() {
+            ccFilterChartResultado = document.getElementById('ccFilterChartResultado').value;
+            if (parsedData) renderDashboard(parsedData, periodoActivo);
+        }
+
+        // ===================== TABS =====================
+        function showPeriod(period) {
+            periodoActivo = period;
+            dynamicPeriods.forEach((p, i) => {
+                const btn = document.getElementById('tab-period-' + i);
+                if (!btn) return;
+                btn.classList.remove('tab-active', 'text-white');
+                btn.classList.add('text-gray-600');
+            });
+            const idx = dynamicPeriods.findIndex(p => p.name === period);
+            if (idx >= 0) {
+                const active = document.getElementById('tab-period-' + idx);
+                if (active) {
+                    active.classList.add('tab-active', 'text-white');
+                    active.classList.remove('text-gray-600');
+                }
+            }
+            if (parsedData) renderDashboard(parsedData, period);
+        }
+
+        function crearTabs(periods) {
+            const container = document.getElementById('periodTabs');
+            if (!container) return;
+            container.innerHTML = periods.map((pp, i) => {
+                const active = pp.name === periodoActivo ? ' tab-active text-white' : ' text-gray-600';
+                return `<button onclick="showPeriod('${pp.name}')" id="tab-period-${i}" class="px-3 py-1.5 rounded text-sm${active}">${pp.name}</button>`;
+            }).join('');
+        }
+
+        // ===================== RENDER =====================
+        function renderDashboard(data, period) {
+            const { obras, financiero } = data;
+            const obrasValidas = obras.filter(o => o.periodos[period] &&
+                (o.periodos[period].ingresos !== null || o.periodos[period].resultado !== null));
+
+            let obrasFiltradas = obrasValidas;
+            if (ccFilter !== 'Todos') {
+                obrasFiltradas = obrasValidas.filter(o => (o.cc || 'Sin CC') === ccFilter);
+            }
+
+            let totIng = 0, totEgr = 0, totRes = 0, rentSum = 0, rentCount = 0;
+            obrasFiltradas.forEach(o => {
+                const d = o.periodos[period];
+                totIng  += d.ingresos  || 0;
+                totEgr  += d.egresos   || 0;
+                totRes  += d.resultado || 0;
+                if (d.rentabilidad !== null && d.rentabilidad !== undefined) { rentSum += d.rentabilidad; rentCount++; }
+            });
+            const avgRent = rentCount > 0 ? rentSum / rentCount : null;
+
+            document.getElementById('totalIngresos').textContent  = formatMoney(totIng);
+            document.getElementById('totalEgresos').textContent      = formatMoney(totEgr);
+            document.getElementById('totalResultado').textContent    = formatMoney(totRes);
+            document.getElementById('totalRentabilidad').textContent = formatPct(avgRent);
+
+            renderObrasCards(obrasFiltradas, period);
+            renderTablaObras(obrasFiltradas, period);
+            renderCharts(obrasFiltradas, obras, financiero, period);
+            renderResumenPeriodos(obras);
+        }
+
+        function renderObrasCards(obras, period) {
+            // Agrupar por CC
+            const grupos = {};
+            obras.forEach(o => {
+                const cc = o.cc || 'Sin CC';
+                if (!grupos[cc]) grupos[cc] = [];
+                grupos[cc].push(o);
+            });
+
+            const html = Object.entries(grupos).map(([cc, items]) => {
+                const cards = items.map(o => {
+                    const d = o.periodos[period];
+                    const pos = (d.resultado || 0) >= 0;
+                    const rentPos = d.rentabilidad !== null && d.rentabilidad >= 0;
+                    return `<div class="bg-white rounded-lg p-4 border-2 card-style ${pos ? 'border-gray-100' : 'border-red-200'}">
+                        <p class="font-semibold text-gray-800 mb-3 truncate" title="${o.name}">${o.name}</p>
+                        <div class="space-y-1 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Ingresos</span>
+                                <span class="font-medium">${formatMoney(d.ingresos)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Egresos</span>
+                                <span class="font-medium">${formatMoney(d.egresos)}</span>
+                            </div>
+                            <div class="flex justify-between border-t pt-1 mt-1">
+                                <span class="text-gray-600 font-medium">Resultado</span>
+                                <span class="font-bold ${pos ? 'text-green-600' : 'text-red-600'}">${formatMoney(d.resultado)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Rentabilidad</span>
+                                <span class="font-semibold px-2 py-0.5 rounded-full text-xs ${d.rentabilidad === null ? 'bg-gray-100 text-gray-500' : rentPos ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${formatPct(d.rentabilidad)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+                return `<div class="col-span-full mb-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">${cc}</span>
+                </div>
+                ${cards}
+                <div class="col-span-full mb-2"></div>`;
+            }).join('');
+
+            document.getElementById('obrasCards').innerHTML = html || '<p class="text-gray-500 text-sm col-span-3 py-4">Sin datos para este período.</p>';
+        }
+
+        function renderTablaObras(obras, period) {
+            if (obras.length === 0) {
+                document.getElementById('tablaObras').innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Sin datos para este período.</td></tr>';
+                return;
+            }
+            // Agrupar por CC para filas agrupadas
+            const grupos = {};
+            obras.forEach(o => {
+                const cc = o.cc || 'Sin CC';
+                if (!grupos[cc]) grupos[cc] = [];
+                grupos[cc].push(o);
+            });
+            let html = '';
+            Object.entries(grupos).forEach(([cc, items]) => {
+                html += `<tr class="bg-indigo-50">
+                    <td colspan="6" class="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-indigo-700">${cc}</td>
+                </tr>`;
+                items.forEach(o => {
+                    const d = o.periodos[period];
+                    const pos = (d.resultado || 0) >= 0;
+                    const rentPos = d.rentabilidad !== null && d.rentabilidad >= 0;
+                    html += `<tr class="border-t hover:bg-indigo-50">
+                        <td class="px-3 py-2 text-xs text-indigo-400 w-4"></td>
+                        <td class="px-3 py-2 font-medium text-gray-800">${o.name}</td>
+                        <td class="px-3 py-2 text-right text-gray-600">${formatMoney(d.ingresos)}</td>
+                        <td class="px-3 py-2 text-right text-gray-600">${formatMoney(d.egresos)}</td>
+                        <td class="px-3 py-2 text-right font-semibold ${pos ? 'text-green-600' : 'text-red-600'}">${formatMoney(d.resultado)}</td>
+                        <td class="px-3 py-2 text-right">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${d.rentabilidad === null ? 'bg-gray-100 text-gray-500' : rentPos ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                ${formatPct(d.rentabilidad)}
+                            </span>
+                        </td>
+                    </tr>`;
+                });
+            });
+            document.getElementById('tablaObras').innerHTML = html;
+        }
+
+        function renderCharts(obrasFiltradas, todasObras, financiero, period) {
+            const colorPrincipal = getComputedStyle(document.documentElement).getPropertyValue('--color-principal').trim() || '#6366f1';
+
+            // --- CHART 1: Ingresos vs Egresos (agrupado por CC, filtro global) ---
+            const ccAgg = {};
+            obrasFiltradas.forEach(o => {
+                const cc = o.cc || 'Sin CC';
+                if (!ccAgg[cc]) ccAgg[cc] = { ingresos: 0, egresos: 0 };
+                ccAgg[cc].ingresos += o.periodos[period].ingresos || 0;
+                ccAgg[cc].egresos  += o.periodos[period].egresos  || 0;
+            });
+            const ccEntries = Object.entries(ccAgg);
+            const usarCC = ccFilter === 'Todos' || ccEntries.length > 1;
+            let labels1, ingresosData, egresosData;
+            if (usarCC) {
+                labels1 = ccEntries.map(([cc]) => cc.length > 16 ? cc.slice(0, 16) + '…' : cc);
+                ingresosData = ccEntries.map(([, v]) => v.ingresos);
+                egresosData  = ccEntries.map(([, v]) => v.egresos);
+            } else {
+                labels1 = obrasFiltradas.map(o => o.name.length > 16 ? o.name.slice(0, 16) + '…' : o.name);
+                ingresosData = obrasFiltradas.map(o => o.periodos[period].ingresos || 0);
+                egresosData  = obrasFiltradas.map(o => o.periodos[period].egresos  || 0);
+            }
+
+            if (chartCertEgr) chartCertEgr.destroy();
+            const ctx1 = document.getElementById('chartCertEgr').getContext('2d');
+            chartCertEgr = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels1,
+                    datasets: [
+                        {
+                            label: 'Ingresos',
+                            data: ingresosData,
+                            backgroundColor: '#3b82f699',
+                            borderColor: '#3b82f6',
+                            borderWidth: 0,
+                            borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+                            borderSkipped: false,
+                            datalabels: { display: true, anchor: 'end', align: 'top', formatter: v => abrevMoney(v), font: { size: 9, weight: 'bold' }, color: '#1e40af', offset: 2 }
+                        },
+                        {
+                            label: 'Egresos',
+                            data: egresosData,
+                            backgroundColor: '#f9731699',
+                            borderColor: '#f97316',
+                            borderWidth: 0,
+                            borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+                            borderSkipped: false,
+                            datalabels: { display: true, anchor: 'end', align: 'top', formatter: v => abrevMoney(v), font: { size: 9, weight: 'bold' }, color: '#c2410c', offset: 2 }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { usePointStyle: true, pointStyleWidth: 10, padding: 16, font: { size: 11 }, color: '#4b5563' }
+                        },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#1f2937',
+                            bodyColor: '#374151',
+                            borderColor: '#e5e7eb',
+                            borderWidth: 1,
+                            padding: 10,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + formatMoney(ctx.raw) }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 30, font: { size: 10 }, color: '#6b7280' } },
+                        y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { callback: v => abrevMoney(v), font: { size: 10 }, color: '#6b7280', padding: 8 } }
+                    }
+                },
+                plugins: [{
+                    id: 'gradientBars1',
+                    beforeDatasetsDraw(chart) {
+                        const { ctx, chartArea } = chart;
+                        if (!chartArea) return;
+                        chart.data.datasets[0].backgroundColor = createGradient(ctx, chartArea, '#60a5fa', '#2563eb');
+                        chart.data.datasets[1].backgroundColor = createGradient(ctx, chartArea, '#fb923c', '#ea580c');
+                    }
+                }]
+            });
+
+            // --- CHART 2: Resultado económico (filtro por Clasificacion, eje X = CC) ---
+            let obrasResultado = obrasFiltradas.filter(o => o.clasificacion);
+            if (ccFilterChartResultado !== 'Todos') {
+                obrasResultado = obrasFiltradas.filter(o => o.clasificacion === ccFilterChartResultado);
+            }
+            const ccAggRes = {};
+            obrasResultado.forEach(o => {
+                const cc = o.cc || 'Sin CC';
+                if (!ccAggRes[cc]) ccAggRes[cc] = 0;
+                ccAggRes[cc] += o.periodos[period].resultado || 0;
+            });
+            const ccEntriesRes = Object.entries(ccAggRes);
+            let labels2, resultadosData;
+            if (ccEntriesRes.length > 1) {
+                labels2 = ccEntriesRes.map(([cc]) => cc.length > 16 ? cc.slice(0, 16) + '…' : cc);
+                resultadosData = ccEntriesRes.map(([, v]) => v);
+            } else {
+                labels2 = obrasResultado.map(o => o.name.length > 16 ? o.name.slice(0, 16) + '…' : o.name);
+                resultadosData = obrasResultado.map(o => o.periodos[period].resultado || 0);
+            }
+
+            if (chartResultado) chartResultado.destroy();
+            const ctx2 = document.getElementById('chartResultado').getContext('2d');
+            chartResultado = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels2,
+                    datasets: [{
+                        label: 'Resultado',
+                        data: resultadosData,
+                        backgroundColor: resultadosData.map(v => v >= 0 ? '#22c55e99' : '#ef444499'),
+                        borderColor: resultadosData.map(v => v >= 0 ? '#16a34a' : '#dc2626'),
+                        borderWidth: 0,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        datalabels: { display: true, anchor: 'end', align: ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'top' : 'bottom', formatter: v => abrevMoney(v), font: { size: 9, weight: 'bold' }, color: ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? '#15803d' : '#b91c1c', offset: 3 }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#1f2937',
+                            bodyColor: '#374151',
+                            borderColor: '#e5e7eb',
+                            borderWidth: 1,
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: { label: ctx => '  Resultado: ' + formatMoney(ctx.raw) }
+                        },
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 30, font: { size: 10 }, color: '#6b7280' } },
+                        y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { callback: v => abrevMoney(v), font: { size: 10 }, color: '#6b7280', padding: 8 } }
+                    }
+                },
+                plugins: [{
+                    id: 'gradientBars2',
+                    beforeDatasetsDraw(chart) {
+                        const { ctx, chartArea } = chart;
+                        if (!chartArea) return;
+                        const gradGreen = createGradient(ctx, chartArea, '#4ade80', '#16a34a');
+                        const gradRed = createGradient(ctx, chartArea, '#f87171', '#dc2626');
+                        chart.data.datasets[0].backgroundColor = chart.data.datasets[0].data.map(v => v >= 0 ? gradGreen : gradRed);
+                    }
+                }]
+            });
+
+            // --- CHART 3: Resultado Economico general (línea por CC, todas las obras) ---
+            const periods = dynamicPeriods.map(p => p.name);
+            const ccPeriodMap = {};
+            todasObras.forEach(o => {
+                const cc = o.cc || 'Sin CC';
+                if (!ccPeriodMap[cc]) ccPeriodMap[cc] = {};
+                periods.forEach(p => {
+                    if (!ccPeriodMap[cc][p]) ccPeriodMap[cc][p] = 0;
+                    if (o.periodos[p]) ccPeriodMap[cc][p] += o.periodos[p].resultado || 0;
+                });
+            });
+            const lineColors = ['#6366f1', '#f97316', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e'];
+            const datasetsLine = Object.entries(ccPeriodMap).map(([cc, perMap], i) => ({
+                label: cc,
+                data: periods.map(p => perMap[p] || 0),
+                borderColor: lineColors[i % lineColors.length],
+                backgroundColor: lineColors[i % lineColors.length] + '33',
+                tension: 0.2,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }));
+
+            if (chartFinanciero) chartFinanciero.destroy();
+            if (datasetsLine.length > 0) {
+                const ctx3 = document.getElementById('chartFinanciero').getContext('2d');
+                const datasetsEnhanced = datasetsLine.map((ds, i) => {
+                    const color = lineColors[i % lineColors.length];
+                    return {
+                        ...ds,
+                        borderColor: color,
+                        backgroundColor: color + '22',
+                        tension: 0.35,
+                        borderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: color,
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointHoverBorderWidth: 3,
+                        fill: false,
+                        datalabels: { display: true, anchor: 'end', align: 'top', formatter: v => abrevMoney(v), font: { size: 8, weight: 'bold' }, color: color, offset: 4, backgroundColor: '#ffffff', borderRadius: 3, padding: 2 }
+                    };
+                });
+                chartFinanciero = new Chart(ctx3, {
+                    type: 'line',
+                    data: { labels: periods, datasets: datasetsEnhanced },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { usePointStyle: true, pointStyleWidth: 10, padding: 16, font: { size: 10 }, color: '#4b5563' }
+                            },
+                            tooltip: {
+                                backgroundColor: '#ffffff',
+                                titleColor: '#1f2937',
+                                bodyColor: '#374151',
+                                borderColor: '#e5e7eb',
+                                borderWidth: 1,
+                                padding: 10,
+                                cornerRadius: 8,
+                                displayColors: true,
+                                callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + formatMoney(ctx.raw) }
+                            },
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#6b7280', padding: 6 } },
+                            y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { callback: v => abrevMoney(v), font: { size: 10 }, color: '#6b7280', padding: 8 } }
+                        }
+                    },
+                    plugins: [{
+                        id: 'gradientFill',
+                        beforeDatasetsDraw(chart) {
+                            const { ctx, chartArea } = chart;
+                            if (!chartArea) return;
+                            chart.data.datasets.forEach((ds, i) => {
+                                const color = lineColors[i % lineColors.length];
+                                const grad = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                                grad.addColorStop(0, color + '11');
+                                grad.addColorStop(1, color + '44');
+                                ds.backgroundColor = grad;
+                            });
+                        }
+                    }]
+                });
+            }
+        }
+
+        function renderResumenPeriodos(obras) {
+            const rows = dynamicPeriods.map(p => {
+                let ing = 0, egr = 0, res = 0, rentSum = 0, rentCount = 0;
+                obras.forEach(o => {
+                    const d = o.periodos[p.name];
+                    if (!d) return;
+                    ing  += d.ingresos  || 0;
+                    egr  += d.egresos   || 0;
+                    res  += d.resultado || 0;
+                    if (d.rentabilidad !== null && d.rentabilidad !== undefined) { rentSum += d.rentabilidad; rentCount++; }
+                });
+                return { p: p.name, ing, egr, res, rent: rentCount > 0 ? rentSum / rentCount : null };
+            });
+            document.getElementById('tablaResumenPeriodos').innerHTML = `
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-gray-600">Período</th>
+                        <th class="px-3 py-2 text-right text-gray-600">Ingresos</th>
+                        <th class="px-3 py-2 text-right text-gray-600">Egresos</th>
+                        <th class="px-3 py-2 text-right text-gray-600">Resultado</th>
+                        <th class="px-3 py-2 text-right text-gray-600">Rentab. prom.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(r => {
+                        const pos = r.res >= 0;
+                        const esAcum = r.p === 'ACUMULADO';
+                        return `<tr class="border-t ${esAcum ? 'bg-indigo-50 font-bold' : 'hover:bg-indigo-50'}">
+                            <td class="px-3 py-2">${r.p}</td>
+                            <td class="px-3 py-2 text-right">${formatMoney(r.ing)}</td>
+                            <td class="px-3 py-2 text-right">${formatMoney(r.egr)}</td>
+                            <td class="px-3 py-2 text-right ${pos ? 'text-green-600' : 'text-red-600'}">${formatMoney(r.res)}</td>
+                            <td class="px-3 py-2 text-right">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium ${r.rent === null ? 'bg-gray-100 text-gray-500' : r.rent >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                    ${formatPct(r.rent)}
+                                </span>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>`;
+        }
+
+        // ===================== ADMIN / EXPORT =====================
+        function abrirSheetAdmin() {
+            const pass = prompt('🔒 Ingresá la contraseña de administrador:');
+            if (pass === null) return;
+            if (pass === CONFIG.ADMIN_PASSWORD) window.open(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/edit`, '_blank');
+            else alert('❌ Contraseña incorrecta');
+        }
+
+        function exportarImagen() {
+            const btn = event.target;
+            const textoOriginal = btn.textContent;
+            btn.textContent = 'Capturando...'; btn.disabled = true;
+            html2canvas(document.querySelector('main'), {
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-fondo'),
+                scale: 2, useCORS: true, logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'dashboard_obras_' + periodoActivo + '_' + new Date().toISOString().split('T')[0] + '.png';
+                link.href = canvas.toDataURL('image/png'); link.click();
+                btn.textContent = textoOriginal; btn.disabled = false;
+            }).catch(err => { btn.textContent = textoOriginal; btn.disabled = false; });
+        }
+
+        // ===================== PERSONALIZACIÓN =====================
+        function togglePanel() {
+            document.getElementById('panelPersonalizacion').classList.toggle('abierto');
+            document.getElementById('btnAbrirPanel').classList.toggle('panel-abierto');
+        }
+        function ajustarColor(color, pct) {
+            const num = parseInt(color.replace('#',''), 16);
+            const amt = Math.round(2.55 * pct);
+            const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+            const G = Math.min(255, Math.max(0, (num >> 8 & 0xFF) + amt));
+            const B = Math.min(255, Math.max(0, (num & 0xFF) + amt));
+            return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+        }
+        function cambiarColorPrincipal() {
+            const color = document.getElementById('colorPrincipal').value;
+            document.documentElement.style.setProperty('--color-principal', color);
+            document.documentElement.style.setProperty('--color-principal-oscuro', ajustarColor(color, -20));
+            if (parsedData) renderDashboard(parsedData, periodoActivo);
+        }
+        const esquemas = { indigo: '#6366f1', naranja: '#f97316', azul: '#3b82f6', verde: '#10b981', morado: '#8b5cf6' };
+        function cambiarEsquema() {
+            document.getElementById('colorPrincipal').value = esquemas[document.getElementById('esquemaColores').value];
+            cambiarColorPrincipal();
+        }
+        function resetearColor() {
+            document.getElementById('colorPrincipal').value = '#6366f1';
+            document.getElementById('esquemaColores').value = 'indigo';
+            cambiarColorPrincipal();
+        }
+        function cambiarNombreEmpresa() {
+            document.getElementById('tituloEmpresa').textContent = document.getElementById('nombreEmpresa').value;
+        }
+        function toggleModoOscuro() {
+            const oscuro = document.getElementById('modoOscuro').checked;
+            document.documentElement.style.setProperty('--color-fondo', oscuro ? '#111827' : '#f3f4f6');
+        }
+        function cambiarBordes() {
+            const radio = document.getElementById('bordeRedondeado').value;
+            document.querySelectorAll('.card-style').forEach(card => { card.style.borderRadius = radio + 'px'; });
+        }
+
+        // ===================== INIT =====================
+        // El usuario ingresa la API key y presiona Cargar (o Enter)
+    </script>
+</body>
+</html>
