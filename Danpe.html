@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Obras — Ingresos Menin</title>
+    <title>Dashboard de ingresos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -91,10 +91,10 @@
             <div class="max-w-6xl mx-auto px-4 py-3">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <img src="logo.jpeg" alt="Logo DANPE" class="h-12 w-auto rounded">
+                        <img src="data:image/jpeg;base64,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" alt="Logo DANPE" class="h-12 w-auto rounded">
                         <div>
-                            <h1 id="tituloEmpresa" class="font-bold text-xl text-gray-900">Rentabilidad economica DANPE</h1>
-                            <p class="text-sm text-gray-500">Dashboard de obras | <span id="indicadorGuardado" class="text-xs"></span></p>
+                            <h1 id="tituloEmpresa" class="font-bold text-xl text-gray-900">Dashboard de ingresos</h1>
+                            <p class="text-sm text-gray-500">Rentabilidad económica acumulada | <span id="indicadorGuardado" class="text-xs"></span></p>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -174,7 +174,7 @@
                         <thead class="bg-gray-50 border-b">
                             <tr>
                                 <th class="px-3 py-2 text-left text-gray-600">Centro de Costo</th>
-                                <th class="px-3 py-2 text-left text-gray-600">Obra</th>
+                                <th class="px-3 py-2 text-left text-gray-600"></th>
                                 <th class="px-3 py-2 text-right text-gray-600">Ingresos</th>
                                 <th class="px-3 py-2 text-right text-gray-600">Egresos</th>
                                 <th class="px-3 py-2 text-right text-gray-600">Resultado</th>
@@ -604,7 +604,7 @@
                     const rentPos = d.rentabilidad !== null && d.rentabilidad >= 0;
                     html += `<tr class="border-t hover:bg-indigo-50">
                         <td class="px-3 py-2 text-xs text-indigo-400 w-4"></td>
-                        <td class="px-3 py-2 font-medium text-gray-800">${o.name}</td>
+                        <td class="px-3 py-2 text-gray-800"></td>
                         <td class="px-3 py-2 text-right text-gray-600">${formatMoney(d.ingresos)}</td>
                         <td class="px-3 py-2 text-right text-gray-600">${formatMoney(d.egresos)}</td>
                         <td class="px-3 py-2 text-right font-semibold ${pos ? 'text-green-600' : 'text-red-600'}">${formatMoney(d.resultado)}</td>
